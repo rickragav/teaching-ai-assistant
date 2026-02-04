@@ -1,0 +1,162 @@
+import logging
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from dotenv import load_dotenv
+
+from livekit.agents import (
+    Agent,
+    AgentServer,
+    AgentSession,
+    JobContext,
+    JobProcess,
+    MetricsCollectedEvent,
+    RunContext,
+    cli,
+    inference,
+    metrics,
+    room_io,
+)
+from livekit.agents.llm import function_tool
+from livekit.plugins import silero
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
+# uncomment to enable Krisp background voice/noise cancellation
+# from livekit.plugins import noise_cancellation
+
+from src.base_agent import BaseAgent
+from src.workflow import TeachingGraph
+from src.rag.setup import setup_rag_system
+
+logger = logging.getLogger("basic-agent")
+
+load_dotenv()
+
+
+class MyAgent(BaseAgent):
+    def __init__(self, langgraph=None) -> None:
+        super().__init__(
+            instructions="You are Dan O'Connor, a master instructor of tactical professional communication. "
+            "You have over 15 years of experience delivering communication training to businesses and individuals. "
+            "Your teaching style is practical, focused on day-to-day communication solutions for stressful situations. "
+            "You help people establish power and control in relationships, recognize and change communication patterns, "
+            "and build strong professional foundations. "
+            "Speak naturally and conversationally, as if conducting a live professional training session. "
+            "Use clear, friendly language suitable for voice interaction. "
+            "Keep responses concise (30-60 seconds of speech). "
+            "Provide real-world examples and practical techniques. "
+            "Use phrases like 'lead-in lines', 'danger phrases', 'power phrases', and 'hamburger pattern'. "
+            "Be encouraging, supportive, and empowering. "
+            "Do not use emojis, asterisks, markdown, or other special characters in your responses.",
+            langgraph=langgraph,
+        )
+
+    async def on_enter(self):
+        # when the agent is added to the session, it'll generate a reply
+        # according to its instructions
+        # Keep it uninterruptible so the client has time to calibrate AEC (Acoustic Echo Cancellation).
+        self.session.generate_reply(allow_interruptions=False)
+
+    # all functions annotated with @function_tool will be passed to the LLM when this
+    # agent is active
+    @function_tool
+    async def lookup_weather(
+        self, context: RunContext, location: str, latitude: str, longitude: str
+    ):
+        """Called when the user asks for weather related information.
+        Ensure the user's location (city or region) is provided.
+        When given a location, please estimate the latitude and longitude of the location and
+        do not ask the user for them.
+
+        Args:
+            location: The location they are asking for
+            latitude: The latitude of the location, do not ask user for it
+            longitude: The longitude of the location, do not ask user for it
+        """
+
+        logger.info(f"Looking up weather for {location}")
+
+        return "sunny with a temperature of 70 degrees."
+
+
+server = AgentServer()
+
+
+def prewarm(proc: JobProcess):
+    proc.userdata["vad"] = silero.VAD.load()
+    # Setup RAG and TeachingGraph
+    logger.info("Prewarming voice agent resources...")
+    vector_store = setup_rag_system()
+    proc.userdata["teaching_graph"] = TeachingGraph(vector_store)
+    logger.info("Voice agent resources ready")
+
+
+server.setup_fnc = prewarm
+
+
+@server.rtc_session()
+async def entrypoint(ctx: JobContext):
+    # each log entry will include these fields
+    ctx.log_context_fields = {
+        "room": ctx.room.name,
+    }
+    session = AgentSession(
+        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
+        # See all available models at https://docs.livekit.io/agents/models/stt/
+        stt=inference.STT("deepgram/nova-3", language="multi"),
+        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
+        # See all available models at https://docs.livekit.io/agents/models/llm/
+        llm=inference.LLM("openai/gpt-4.1-mini"),
+        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
+        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+        tts=inference.TTS(
+            "cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
+        ),
+        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
+        # See more at https://docs.livekit.io/agents/build/turns
+        turn_detection=MultilingualModel(),
+        vad=ctx.proc.userdata["vad"],
+        # allow the LLM to generate a response while waiting for the end of turn
+        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
+        preemptive_generation=True,
+        # sometimes background noise could interrupt the agent session, these are considered false positive interruptions
+        # when it's detected, you may resume the agent's speech
+        resume_false_interruption=True,
+        false_interruption_timeout=1.0,
+    )
+
+    # log metrics as they are emitted, and total usage after session is over
+    usage_collector = metrics.UsageCollector()
+
+    @session.on("metrics_collected")
+    def _on_metrics_collected(ev: MetricsCollectedEvent):
+        metrics.log_metrics(ev.metrics)
+        usage_collector.collect(ev.metrics)
+
+    async def log_usage():
+        summary = usage_collector.get_summary()
+        logger.info(f"Usage: {summary}")
+
+    # shutdown callbacks are triggered when the session is over
+    ctx.add_shutdown_callback(log_usage)
+
+    # Get the prewarmed TeachingGraph
+    teaching_graph = ctx.proc.userdata.get("teaching_graph")
+
+    await session.start(
+        agent=MyAgent(langgraph=teaching_graph),
+        room=ctx.room,
+        room_options=room_io.RoomOptions(
+            audio_input=room_io.AudioInputOptions(
+                # uncomment to enable the Krisp BVC noise cancellation
+                # noise_cancellation=noise_cancellation.BVC(),
+            ),
+        ),
+    )
+
+
+if __name__ == "__main__":
+    cli.run_app(server)
