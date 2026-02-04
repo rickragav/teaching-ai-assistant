@@ -903,7 +903,8 @@ def get_chat_html() -> str:
         }
 
         function connectWebSocket() {
-            ws = new WebSocket(`ws://${window.location.host}/ws`);
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
             
             ws.onopen = () => {
                 console.log('WebSocket connected');
