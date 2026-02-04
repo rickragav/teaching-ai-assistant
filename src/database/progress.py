@@ -100,25 +100,21 @@ def save_message(user_id: str, sender: str, text: str) -> None:
         text: Message text
     """
     user = get_or_create_user(user_id)
-    
+
     # Initialize conversation_history if not exists (for existing users)
     if "conversation_history" not in user:
         user["conversation_history"] = []
-    
+
     # Add message with timestamp
-    message = {
-        "sender": sender,
-        "text": text,
-        "timestamp": datetime.now().isoformat()
-    }
-    
+    message = {"sender": sender, "text": text, "timestamp": datetime.now().isoformat()}
+
     user["conversation_history"].append(message)
     user["last_accessed"] = datetime.now().isoformat()
-    
+
     # Keep only last 100 messages to prevent database bloat
     if len(user["conversation_history"]) > 100:
         user["conversation_history"] = user["conversation_history"][-100:]
-    
+
     db.save_user(user_id, user)
     logger.info(f"Saved message for user {user_id}: {sender}")
 

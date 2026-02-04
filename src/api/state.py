@@ -21,7 +21,7 @@ _lesson_metadata: Optional[Dict] = None
 async def initialize_system():
     """Initialize LangGraph system"""
     global _vector_store, _teaching_graph, _lesson_loader, _lesson_metadata
-    
+
     _vector_store = setup_rag_system()
     _teaching_graph = TeachingGraph(_vector_store)
     _lesson_loader = LessonLoader()

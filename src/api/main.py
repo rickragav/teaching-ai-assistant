@@ -17,7 +17,7 @@ logger = setup_logger(__name__)
 app = FastAPI(
     title="LangGraph Teaching API",
     description="Real-time chat interface for English Teacher AI",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # CORS middleware
@@ -38,7 +38,7 @@ app.include_router(websocket_router)
 async def startup_event():
     """Initialize LangGraph system on startup"""
     logger.info("🚀 Starting LangGraph Teaching API...")
-    
+
     try:
         await initialize_system()
         logger.info("✅ LangGraph system initialized successfully")
@@ -55,4 +55,5 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

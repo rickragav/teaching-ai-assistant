@@ -42,7 +42,7 @@ class TeachingState(TypedDict):
 
     # Navigation
     next_action: str  # "continue", "quiz", "next_lesson", "exit"
-    
+
     # Request source (for formatting)
     source: Optional[str]  # "ui", "voice", "cli" - determines response formatting
 

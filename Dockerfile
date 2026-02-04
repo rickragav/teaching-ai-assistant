@@ -32,9 +32,6 @@ ENV PYTHONUNBUFFERED=1 \
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy environment file
-COPY .env ./.env
-
 # Copy application code
 COPY src/ ./src/
 COPY database/ ./database/

@@ -29,13 +29,10 @@ async def health_check():
         return {
             "status": "healthy",
             "graph_initialized": True,
-            "lessons_loaded": len(metadata)
+            "lessons_loaded": len(metadata),
         }
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        return {"status": "unhealthy", "error": str(e)}
 
 
 @router.get("/api/lessons")

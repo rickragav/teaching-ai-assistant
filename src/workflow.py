@@ -109,9 +109,10 @@ class TeachingGraph:
 
         try:
             # Check if request is from UI (for markdown formatting)
-            is_ui_request = state.get('source') == 'ui'
-            
-            markdown_instruction = """
+            is_ui_request = state.get("source") == "ui"
+
+            markdown_instruction = (
+                """
 
 FORMATTING (IMPORTANT):
 - Use markdown formatting in your responses
@@ -122,8 +123,11 @@ FORMATTING (IMPORTANT):
 - Use > for quotes or examples
 - Use `code` for technical terms
 - Use ### for section headers if needed
-- Keep paragraphs separated with blank lines""" if is_ui_request else ""
-            
+- Keep paragraphs separated with blank lines"""
+                if is_ui_request
+                else ""
+            )
+
             system_prompt = f"""You are an expert English grammar teacher teaching "{state['lesson_title']}".
 
 TEACHING GUIDELINES:
