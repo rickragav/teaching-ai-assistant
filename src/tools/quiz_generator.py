@@ -3,7 +3,7 @@ Quiz Generator - Generate and evaluate quizzes based on lesson content
 """
 
 from typing import List, Dict, Optional
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from ..config import settings
 from ..rag.vector_store import LessonVectorStore
@@ -17,11 +17,20 @@ class QuizGenerator:
 
     def __init__(self, vector_store: LessonVectorStore):
         self.vector_store = vector_store
-        self.llm = ChatOpenAI(
-            model=settings.model_name,
-            temperature=0.3,  # Lower temperature for more consistent quiz generation
-            openai_api_key=settings.openai_api_key,
-        )
+        if settings.use_azure_openai:
+            self.llm = AzureChatOpenAI(
+                azure_deployment=settings.azure_openai_deployment,
+                azure_endpoint=settings.azure_openai_endpoint,
+                api_key=settings.azure_openai_api_key,
+                api_version=settings.azure_openai_api_version,
+                temperature=0.3,
+            )
+        else:
+            self.llm = ChatOpenAI(
+                model=settings.model_name,
+                temperature=0.3,  # Lower temperature for more consistent quiz generation
+                openai_api_key=settings.openai_api_key,
+            )
 
     def generate_quiz(
         self, lesson_id: int, lesson_title: str, num_questions: int = 5

@@ -4,7 +4,7 @@ RAG Vector Store - ChromaDB operations for lesson embeddings
 
 from typing import List, Optional
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings, AzureOpenAIEmbeddings
 from langchain_core.documents import Document
 from ..config import settings
 from ..utils.logger import setup_logger
@@ -16,9 +16,17 @@ class LessonVectorStore:
     """Manage ChromaDB vector store for lesson content"""
 
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=settings.openai_api_key, model="text-embedding-3-small"
-        )
+        if settings.use_azure_openai:
+            self.embeddings = AzureOpenAIEmbeddings(
+                azure_deployment=settings.azure_openai_embedding_deployment,
+                azure_endpoint=settings.azure_openai_endpoint,
+                api_key=settings.azure_openai_api_key,
+                api_version=settings.azure_openai_api_version,
+            )
+        else:
+            self.embeddings = OpenAIEmbeddings(
+                openai_api_key=settings.openai_api_key, model="text-embedding-3-small"
+            )
         self.chroma_path = str(settings.chroma_path)
         self.collection_name = "lesson_transcriptions"
         self._vector_store = None

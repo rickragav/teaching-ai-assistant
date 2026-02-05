@@ -1,52 +1,44 @@
-# Use official Python 3.11 slim image
-FROM python:3.11-slim as builder
+FROM agysacrdev.azurecr.io/official/almalinux-python:latest
+
+# Prevent Python from buffering stdout/stderr
+ENV PYTHONUNBUFFERED=1
 
 # Set working directory
 WORKDIR /app
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+# Set Python path so modules can be found
+ENV PYTHONPATH=/app
 
-# Copy requirements files
-COPY requirements.txt ./
+# Upgrade SQLite3 to meet ChromaDB requirements (>= 3.35.0)
+RUN yum install -y gcc make wget && \
+    cd /tmp && \
+    wget https://www.sqlite.org/2024/sqlite-autoconf-3450100.tar.gz && \
+    tar xzf sqlite-autoconf-3450100.tar.gz && \
+    cd sqlite-autoconf-3450100 && \
+    ./configure --prefix=/usr/local && \
+    make && \
+    make install && \
+    echo "/usr/local/lib" > /etc/ld.so.conf.d/sqlite3.conf && \
+    ldconfig && \
+    cd / && \
+    rm -rf /tmp/sqlite-autoconf-3450100* && \
+    yum clean all
 
-# Install Python dependencies in a virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
+# Set environment variable for SQLite3
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
-# Final stage - smaller runtime image
-FROM python:3.11-slim
-
-# Set working directory
-WORKDIR /app
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/opt/venv/bin:$PATH"
-
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY src/ ./src/
-COPY database/ ./database/
-COPY data/ ./data/
-COPY docs/ ./docs/
+COPY . .
 
-# Create logs directory
-RUN mkdir -p logs
+# Download models at build time
+RUN python3 src/voice_agent.py download-files
 
-# Expose port for FastAPI
-EXPOSE 8000
+# Expose port
+EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/api/health')" || exit 1
-
-# Run the FastAPI application
-CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application
+CMD ["python3", "src/voice_agent.py", "start"]

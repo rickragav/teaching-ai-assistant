@@ -1,5 +1,5 @@
 """
-RAG Document Loader - Loads and chunks lesson transcriptions
+RAG Document Loader - Loads and chunks lesson transcriptions from JSON database
 """
 
 from pathlib import Path
@@ -8,151 +8,154 @@ from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from ..config import settings
+from ..database.connection import db
 from ..utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
 class LessonLoader:
-    """Load and process lesson transcription files with course/section/lesson structure"""
+    """Load and process lesson transcriptions from JSON database"""
 
     def __init__(self):
-        self.course_path = settings.course_path
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.chunk_size,
             chunk_overlap=settings.chunk_overlap,
             length_function=len,
             is_separator_regex=False,
         )
-        logger.info(f"Using course: {settings.course_name} at {self.course_path}")
+        logger.info("LessonLoader initialized with JSON database backend")
 
-    def load_lesson(
-        self, section: str, lesson_name: str, lesson_id: int = None
+    def load_lesson_from_content(
+        self, content: str, course_id: str, section_id: str, lesson_id: str, 
+        lesson_title: str, section_title: str
     ) -> List[Document]:
         """
-        Load and chunk a specific lesson from course/section/lesson structure
+        Load and chunk a lesson from text content
 
         Args:
-            section: Section folder name (e.g., 'section1', 'section2')
-            lesson_name: Lesson file name (e.g., 'lesson_1.txt')
-            lesson_id: Optional lesson ID for metadata
+            content: Lesson transcription text
+            course_id: Course identifier
+            section_id: Section identifier
+            lesson_id: Lesson identifier
+            lesson_title: Lesson title
+            section_title: Section title
 
         Returns:
             List of Document objects with chunks and metadata
         """
-        lesson_file = self.course_path / section / lesson_name
-
-        if not lesson_file.exists():
-            logger.error(f"Lesson file not found: {lesson_file}")
-            raise FileNotFoundError(f"Lesson not found at {lesson_file}")
-
-        logger.info(f"Loading lesson from {lesson_file}")
-
-        # Load the file
-        loader = TextLoader(str(lesson_file), encoding="utf-8")
-        documents = loader.load()
-
-        # Add metadata
-        for doc in documents:
-            doc.metadata["course"] = settings.course_name
-            doc.metadata["section"] = section
-            doc.metadata["lesson_name"] = lesson_name
-            if lesson_id:
-                doc.metadata["lesson_id"] = lesson_id
-            doc.metadata["source"] = str(lesson_file)
+        # Create document from content
+        document = Document(
+            page_content=content,
+            metadata={
+                "course_id": course_id,
+                "section_id": section_id,
+                "lesson_id": lesson_id,
+                "lesson_title": lesson_title,
+                "section_title": section_title,
+                "source": "json_database"
+            }
+        )
 
         # Split into chunks
-        chunks = self.text_splitter.split_documents(documents)
-        logger.info(f"Split lesson into {len(chunks)} chunks")
+        chunks = self.text_splitter.split_documents([document])
+        logger.info(f"Split lesson {lesson_id} into {len(chunks)} chunks")
 
         return chunks
 
     def load_all_lessons(self) -> List[Document]:
         """
-        Load all available lesson transcriptions from course/section/lesson structure
+        Load all available lessons from JSON database
 
         Returns:
-            List of all Document chunks from all lessons
+            List of all Document chunks from all courses/sections/lessons
         """
         all_chunks = []
+        courses = db.get_all_courses()
 
-        if not self.course_path.exists():
-            logger.error(f"Course path not found: {self.course_path}")
+        if not courses:
+            logger.warning("No courses found in database")
             return []
 
-        # Find all section directories
-        sections = sorted([d for d in self.course_path.iterdir() if d.is_dir()])
+        logger.info(f"Found {len(courses)} courses in database")
 
-        if not sections:
-            logger.warning(f"No sections found in {self.course_path}")
-            return []
+        for course_id, course_data in courses.items():
+            if course_data.get("status") != "published":
+                logger.info(f"Skipping unpublished course: {course_id}")
+                continue
 
-        logger.info(f"Found {len(sections)} sections in course: {settings.course_name}")
+            sections = course_data.get("sections", [])
+            
+            for section in sections:
+                section_id = section.get("id", "")
+                section_title = section.get("title", "")
+                lessons = section.get("lessons", [])
 
-        lesson_counter = 1
-        for section in sections:
-            section_name = section.name
-            logger.info(f"Loading section: {section_name}")
+                for lesson in lessons:
+                    lesson_id = lesson.get("id", "")
+                    lesson_title = lesson.get("title", "")
+                    content = lesson.get("content", "")
 
-            # Find all lesson files in this section
-            lesson_files = sorted(section.glob("*.txt"))
+                    if not content:
+                        logger.warning(f"Empty content for lesson {lesson_id}")
+                        continue
 
-            for lesson_file in lesson_files:
-                try:
-                    chunks = self.load_lesson(
-                        section_name, lesson_file.name, lesson_counter
-                    )
-                    all_chunks.extend(chunks)
-                    lesson_counter += 1
-                except Exception as e:
-                    logger.error(f"Failed to load {lesson_file}: {e}")
-                    continue
+                    try:
+                        chunks = self.load_lesson_from_content(
+                            content, course_id, section_id, lesson_id, 
+                            lesson_title, section_title
+                        )
+                        all_chunks.extend(chunks)
+                    except Exception as e:
+                        logger.error(f"Failed to load lesson {lesson_id}: {e}")
+                        continue
 
-        logger.info(
-            f"Loaded total of {len(all_chunks)} chunks from {lesson_counter - 1} lessons"
-        )
+        logger.info(f"Loaded total of {len(all_chunks)} chunks from database")
         return all_chunks
 
     def get_lesson_metadata(self) -> Dict[int, Dict]:
         """
-        Get metadata about available lessons from course/section/lesson structure
+        Get metadata about available lessons from JSON database
 
         Returns:
-            Dict mapping lesson_id to metadata (title, section, file_path, etc.)
+            Dict mapping sequential lesson_id to metadata
         """
         metadata = {}
+        courses = db.get_all_courses()
 
-        if not self.course_path.exists():
-            logger.warning(f"Course path not found: {self.course_path}")
+        if not courses:
+            logger.warning("No courses found in database")
             return metadata
 
-        sections = sorted([d for d in self.course_path.iterdir() if d.is_dir()])
-
         lesson_counter = 1
-        for section in sections:
-            section_name = section.name
-            lesson_files = sorted(section.glob("*.txt"))
+        for course_id, course_data in courses.items():
+            if course_data.get("status") != "published":
+                continue
 
-            for lesson_file in lesson_files:
-                try:
-                    with open(lesson_file, "r", encoding="utf-8") as f:
-                        first_line = f.readline().strip()
-                        title = (
-                            first_line.replace("Lesson:", "").replace("#", "").strip()
-                        )
+            course_title = course_data.get("title", "")
+            sections = course_data.get("sections", [])
+
+            for section in sections:
+                section_id = section.get("id", "")
+                section_title = section.get("title", "")
+                lessons = section.get("lessons", [])
+
+                for lesson in lessons:
+                    lesson_id = lesson.get("id", "")
+                    lesson_title = lesson.get("title", "")
+                    content = lesson.get("content", "")
 
                     metadata[lesson_counter] = {
                         "lesson_id": lesson_counter,
-                        "course": settings.course_name,
-                        "section": section_name,
-                        "lesson_name": lesson_file.name,
-                        "title": title,
-                        "file_path": str(lesson_file),
-                        "file_size": lesson_file.stat().st_size,
+                        "db_lesson_id": lesson_id,
+                        "course_id": course_id,
+                        "course_title": course_title,
+                        "section_id": section_id,
+                        "section_title": section_title,
+                        "title": lesson_title,
+                        "content_length": len(content)
                     }
                     lesson_counter += 1
-                except Exception as e:
-                    logger.error(f"Failed to read metadata for {lesson_file}: {e}")
-                    continue
 
+        logger.info(f"Retrieved metadata for {len(metadata)} lessons")
         return metadata

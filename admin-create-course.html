@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UdemyGPT - Admin Backoffice</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .lesson-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .lesson-item h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .section-item {
+            background: #e8eaf6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .section-item h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .courses-list {
+            margin-top: 20px;
+        }
+
+        .course-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 5px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .course-info h3 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .course-info p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .course-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .stat {
+            background: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .course-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .add-section-btn {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            margin-top: 10px;
+        }
+
+        .remove-btn {
+            background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .dynamic-section {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .file-upload {
+            border: 2px dashed #667eea;
+            padding: 30px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-upload:hover {
+            background: #f0f0f0;
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        #apiStatus {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        .status-online {
+            color: #48bb78;
+        }
+
+        .status-offline {
+            color: #f56565;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 UdemyGPT Admin Backoffice</h1>
+            <p>Manage courses, sections, and lessons for your AI-powered learning platform</p>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <!-- Create Course Section -->
+        <div class="section">
+            <h2>📚 Create New Course</h2>
+            <form id="courseForm">
+                <div class="form-group">
+                    <label for="courseTitle">Course Title *</label>
+                    <input type="text" id="courseTitle" required placeholder="e.g., Effective Communication in the Workplace">
+                </div>
+
+                <div class="form-group">
+                    <label for="courseDescription">Course Description</label>
+                    <textarea id="courseDescription" placeholder="Brief description of the course content..."></textarea>
+                </div>
+
+                <div id="sectionsContainer">
+                    <h3 style="margin: 20px 0 15px 0; color: #667eea;">Sections & Lessons</h3>
+                    <div class="section-item dynamic-section" data-section-index="0">
+                        <h3>Section 1</h3>
+                        <div class="form-group">
+                            <label>Section Title *</label>
+                            <input type="text" class="section-title" required placeholder="e.g., Introduction to Communication">
+                        </div>
+
+                        <div class="lessons-container">
+                            <h4 style="margin: 15px 0 10px 0;">Lessons</h4>
+                            <div class="lesson-item" data-lesson-index="0">
+                                <div class="form-group">
+                                    <label>Lesson Title *</label>
+                                    <input type="text" class="lesson-title" required placeholder="e.g., Understanding Communication Basics">
+                                </div>
+                                <div class="form-group">
+                                    <label>Lesson Subtitle</label>
+                                    <input type="text" class="lesson-subtitle" placeholder="Optional subtitle">
+                                </div>
+                                <div class="form-group">
+                                    <label>Lesson Content (Transcription) *</label>
+                                    <textarea class="lesson-content" required placeholder="Paste the lesson transcription here..."></textarea>
+                                </div>
+                                <button type="button" class="btn btn-small remove-btn" onclick="removeLesson(this)">Remove Lesson</button>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-small add-section-btn" onclick="addLesson(this)">+ Add Lesson</button>
+                        <button type="button" class="btn btn-small remove-btn" onclick="removeSection(this)">Remove Section</button>
+                    </div>
+                </div>
+
+                <button type="button" class="btn add-section-btn" onclick="addSection()">+ Add Section</button>
+                <br><br>
+                <button type="submit" class="btn">Create Course</button>
+            </form>
+        </div>
+
+        <!-- Upload Transcription Section -->
+        <div class="section">
+            <h2>📄 Upload Transcription to Existing Course</h2>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="uploadCourseId">Select Course *</label>
+                    <select id="uploadCourseId" required>
+                        <option value="">-- Select a course --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="uploadSectionTitle">Section Title *</label>
+                    <input type="text" id="uploadSectionTitle" required placeholder="e.g., Advanced Topics">
+                </div>
+
+                <div class="form-group">
+                    <label for="uploadLessonTitle">Lesson Title *</label>
+                    <input type="text" id="uploadLessonTitle" required placeholder="e.g., Lesson 5">
+                </div>
+
+                <div class="form-group">
+                    <label>Upload Transcription File (.txt) *</label>
+                    <div class="file-upload" onclick="document.getElementById('transcriptionFile').click()">
+                        <p id="fileUploadLabel">Click to upload a .txt file</p>
+                        <input type="file" id="transcriptionFile" accept=".txt" onchange="updateFileLabel(this)">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">Upload Transcription</button>
+            </form>
+        </div>
+
+        <!-- List Courses Section -->
+        <div class="section">
+            <h2>📋 Existing Courses</h2>
+            <button class="btn" onclick="loadCourses()">🔄 Refresh Courses</button>
+            <button class="btn" onclick="rebuildVectorDB()" style="margin-left: 10px;">🔄 Rebuild Vector Database</button>
+            <div id="coursesList" class="courses-list"></div>
+        </div>
+    </div>
+
+    <div id="apiStatus">
+        <span class="status-offline">⚫ API Status: Checking...</span>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api';
+        let sectionCounter = 1;
+
+        // Check API status on load
+        checkAPIStatus();
+
+        // Load courses on page load
+        loadCourses();
+
+        async function checkAPIStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                document.getElementById('apiStatus').innerHTML = 
+                    `<span class="status-online">🟢 API Status: Online</span>`;
+            } catch (error) {
+                document.getElementById('apiStatus').innerHTML = 
+                    `<span class="status-offline">🔴 API Status: Offline</span>`;
+            }
+        }
+
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            document.getElementById('alertContainer').appendChild(alertDiv);
+            
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        function addSection() {
+            sectionCounter++;
+            const container = document.getElementById('sectionsContainer');
+            const sectionHTML = `
+                <div class="section-item dynamic-section" data-section-index="${sectionCounter}">
+                    <h3>Section ${sectionCounter + 1}</h3>
+                    <div class="form-group">
+                        <label>Section Title *</label>
+                        <input type="text" class="section-title" required placeholder="e.g., Advanced Concepts">
+                    </div>
+
+                    <div class="lessons-container">
+                        <h4 style="margin: 15px 0 10px 0;">Lessons</h4>
+                        <div class="lesson-item" data-lesson-index="0">
+                            <div class="form-group">
+                                <label>Lesson Title *</label>
+                                <input type="text" class="lesson-title" required placeholder="e.g., Lesson Title">
+                            </div>
+                            <div class="form-group">
+                                <label>Lesson Subtitle</label>
+                                <input type="text" class="lesson-subtitle" placeholder="Optional subtitle">
+                            </div>
+                            <div class="form-group">
+                                <label>Lesson Content (Transcription) *</label>
+                                <textarea class="lesson-content" required placeholder="Paste the lesson transcription here..."></textarea>
+                            </div>
+                            <button type="button" class="btn btn-small remove-btn" onclick="removeLesson(this)">Remove Lesson</button>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-small add-section-btn" onclick="addLesson(this)">+ Add Lesson</button>
+                    <button type="button" class="btn btn-small remove-btn" onclick="removeSection(this)">Remove Section</button>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', sectionHTML);
+        }
+
+        function addLesson(button) {
+            const sectionItem = button.closest('.section-item');
+            const lessonsContainer = sectionItem.querySelector('.lessons-container');
+            const lessonCount = lessonsContainer.querySelectorAll('.lesson-item').length;
+            
+            const lessonHTML = `
+                <div class="lesson-item" data-lesson-index="${lessonCount}">
+                    <div class="form-group">
+                        <label>Lesson Title *</label>
+                        <input type="text" class="lesson-title" required placeholder="e.g., Lesson Title">
+                    </div>
+                    <div class="form-group">
+                        <label>Lesson Subtitle</label>
+                        <input type="text" class="lesson-subtitle" placeholder="Optional subtitle">
+                    </div>
+                    <div class="form-group">
+                        <label>Lesson Content (Transcription) *</label>
+                        <textarea class="lesson-content" required placeholder="Paste the lesson transcription here..."></textarea>
+                    </div>
+                    <button type="button" class="btn btn-small remove-btn" onclick="removeLesson(this)">Remove Lesson</button>
+                </div>
+            `;
+            lessonsContainer.insertAdjacentHTML('beforeend', lessonHTML);
+        }
+
+        function removeSection(button) {
+            const sections = document.querySelectorAll('.dynamic-section');
+            if (sections.length > 1) {
+                button.closest('.dynamic-section').remove();
+            } else {
+                showAlert('At least one section is required', 'error');
+            }
+        }
+
+        function removeLesson(button) {
+            const lessons = button.closest('.lessons-container').querySelectorAll('.lesson-item');
+            if (lessons.length > 1) {
+                button.closest('.lesson-item').remove();
+            } else {
+                showAlert('At least one lesson per section is required', 'error');
+            }
+        }
+
+        function updateFileLabel(input) {
+            const label = document.getElementById('fileUploadLabel');
+            if (input.files.length > 0) {
+                label.textContent = `📄 ${input.files[0].name}`;
+            }
+        }
+
+        // Create Course Form Submission
+        document.getElementById('courseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('courseTitle').value;
+            const description = document.getElementById('courseDescription').value;
+            
+            const sections = [];
+            document.querySelectorAll('.dynamic-section').forEach((sectionEl, sectionIdx) => {
+                const sectionTitle = sectionEl.querySelector('.section-title').value;
+                const lessons = [];
+                
+                sectionEl.querySelectorAll('.lesson-item').forEach((lessonEl, lessonIdx) => {
+                    lessons.push({
+                        title: lessonEl.querySelector('.lesson-title').value,
+                        subtitle: lessonEl.querySelector('.lesson-subtitle').value,
+                        content: lessonEl.querySelector('.lesson-content').value,
+                        order: lessonIdx
+                    });
+                });
+                
+                sections.push({
+                    title: sectionTitle,
+                    order: sectionIdx,
+                    lessons: lessons
+                });
+            });
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/courses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, description, sections })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showAlert(`Course "${title}" created successfully!`, 'success');
+                    document.getElementById('courseForm').reset();
+                    loadCourses();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Error: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`Error creating course: ${error.message}`, 'error');
+            }
+        });
+
+        // Upload Transcription Form Submission
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const courseId = document.getElementById('uploadCourseId').value;
+            const sectionTitle = document.getElementById('uploadSectionTitle').value;
+            const lessonTitle = document.getElementById('uploadLessonTitle').value;
+            const fileInput = document.getElementById('transcriptionFile');
+            
+            if (!fileInput.files[0]) {
+                showAlert('Please select a transcription file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('section_title', sectionTitle);
+            formData.append('lesson_title', lessonTitle);
+            formData.append('file', fileInput.files[0]);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/courses/${courseId}/upload-transcription`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    showAlert('Transcription uploaded successfully!', 'success');
+                    document.getElementById('uploadForm').reset();
+                    document.getElementById('fileUploadLabel').textContent = 'Click to upload a .txt file';
+                    loadCourses();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Error: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`Error uploading transcription: ${error.message}`, 'error');
+            }
+        });
+
+        // Load and display courses
+        async function loadCourses() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/courses`);
+                const courses = await response.json();
+                
+                const coursesList = document.getElementById('coursesList');
+                const coursesSelect = document.getElementById('uploadCourseId');
+                
+                if (courses.length === 0) {
+                    coursesList.innerHTML = '<p style="color: #666; margin-top: 20px;">No courses found. Create your first course above!</p>';
+                    coursesSelect.innerHTML = '<option value="">-- No courses available --</option>';
+                    return;
+                }
+                
+                // Update courses list
+                coursesList.innerHTML = courses.map(course => `
+                    <div class="course-card">
+                        <div class="course-info">
+                            <h3>${course.title}</h3>
+                            <p>${course.description || 'No description'}</p>
+                            <div class="course-stats">
+                                <span class="stat">📚 ${course.sections_count} Sections</span>
+                                <span class="stat">📝 ${course.lessons_count} Lessons</span>
+                                <span class="stat">📅 ${new Date(course.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <div class="course-actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteCourse('${course.id}', '${course.title}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Update courses dropdown
+                coursesSelect.innerHTML = '<option value="">-- Select a course --</option>' +
+                    courses.map(course => `<option value="${course.id}">${course.title}</option>`).join('');
+                
+            } catch (error) {
+                showAlert(`Error loading courses: ${error.message}`, 'error');
+            }
+        }
+
+        // Delete course
+        async function deleteCourse(courseId, courseTitle) {
+            if (!confirm(`Are you sure you want to delete "${courseTitle}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/courses/${courseId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showAlert(`Course "${courseTitle}" deleted successfully`, 'success');
+                    loadCourses();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Error: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`Error deleting course: ${error.message}`, 'error');
+            }
+        }
+
+        // Rebuild Vector Database
+        async function rebuildVectorDB() {
+            if (!confirm('This will rebuild the vector database from all published courses. This may take a few moments. Continue?')) {
+                return;
+            }
+
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = '⏳ Rebuilding...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/rebuild-vector-db`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ ${data.message}\n\nPublished Courses: ${data.stats.published_courses}\nTotal Lessons: ${data.stats.total_lessons}`);
+                } else {
+                    alert('❌ Failed to rebuild vector database: ' + data.detail);
+                }
+            } catch (error) {
+                console.error('Error rebuilding vector database:', error);
+                alert('❌ Error: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = '🔄 Rebuild Vector Database';
+            }
+        }
+
+        // Check API status periodically
+        setInterval(checkAPIStatus, 30000);
+    </script>
+</body>
+</html>

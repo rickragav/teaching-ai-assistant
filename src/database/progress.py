@@ -131,3 +131,98 @@ def get_conversation_history(user_id: str) -> list:
     """
     user = get_or_create_user(user_id)
     return user.get("conversation_history", [])
+
+
+def register_user(user_id: str, name: str, phone_number: str) -> Dict:
+    """
+    Register a new user with name and phone number
+
+    Args:
+        user_id: User identifier (usually user_{phone_number})
+        name: User's name
+        phone_number: User's phone number (10 digits)
+
+    Returns:
+        Dict with user data
+    """
+    # Check if user already exists
+    existing_user = db.get_user(user_id)
+    if existing_user:
+        logger.warning(f"User already exists: {user_id}")
+        return existing_user
+
+    now = datetime.now().isoformat()
+
+    user_data = {
+        "user_id": user_id,
+        "name": name,
+        "phone_number": phone_number,
+        "selected_mode": None,  # 'chat' or 'voice'
+        "current_lesson_id": 1,
+        "completed_lessons": [],
+        "lesson_scores": {},
+        "conversation_history": [],
+        "last_accessed": now,
+        "created_at": now,
+    }
+
+    db.save_user(user_id, user_data)
+    logger.info(f"Registered new user: {user_id} ({name})")
+    return user_data
+
+
+def authenticate_user(name: str, phone_number: str) -> Dict | None:
+    """
+    Authenticate user by name and phone number
+
+    Args:
+        name: User's name
+        phone_number: User's phone number
+
+    Returns:
+        User data dict if found and matches, None otherwise
+    """
+    user_id = f"user_{phone_number}"
+    user_data = db.get_user(user_id)
+
+    if not user_data:
+        logger.info(f"User not found: {user_id}")
+        return None
+
+    # Verify name matches (case-insensitive)
+    if user_data.get("name", "").lower() != name.lower():
+        logger.warning(f"Name mismatch for user {user_id}")
+        return None
+
+    # Update last accessed
+    user_data["last_accessed"] = datetime.now().isoformat()
+    db.save_user(user_id, user_data)
+
+    logger.info(f"User authenticated: {user_id} ({name})")
+    return user_data
+
+
+def update_user_mode(user_id: str, mode: str) -> Dict | None:
+    """
+    Update user's selected learning mode
+
+    Args:
+        user_id: User identifier
+        mode: Selected mode ('chat' or 'voice')
+
+    Returns:
+        Updated user data dict if successful, None otherwise
+    """
+    user_data = db.get_user(user_id)
+
+    if not user_data:
+        logger.warning(f"User not found: {user_id}")
+        return None
+
+    # Update selected mode
+    user_data["selected_mode"] = mode
+    user_data["last_accessed"] = datetime.now().isoformat()
+    db.save_user(user_id, user_data)
+
+    logger.info(f"Updated mode for user {user_id}: {mode}")
+    return user_data

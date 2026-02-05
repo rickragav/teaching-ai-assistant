@@ -18,6 +18,18 @@ class Settings(BaseSettings):
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     max_openai_tokens: int = int(os.getenv("MAX_OPENAI_TOKENS", "500"))
 
+    # Azure OpenAI Settings
+    use_azure_openai: bool = os.getenv("USE_AZURE_OPENAI", "false").lower() == "true"
+    azure_openai_api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "")
+    azure_openai_endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+    azure_openai_deployment: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+    azure_openai_api_version: str = os.getenv(
+        "AZURE_OPENAI_API_VERSION", "2024-02-15-preview"
+    )
+    azure_openai_embedding_deployment: str = os.getenv(
+        "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
+    )
+
     # Course Settings
     course_name: str = os.getenv("COURSE_NAME", "english-grammar")
 

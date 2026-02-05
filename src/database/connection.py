@@ -37,7 +37,10 @@ class JSONDatabase:
 
     def _initialize_db(self):
         """Initialize empty database structure"""
-        initial_data = {"users": {}}  # user_id -> user_data mapping
+        initial_data = {
+            "users": {},  # user_id -> user_data mapping
+            "courses": {}  # course_id -> course_data mapping
+        }
         self._write_data(initial_data)
         logger.info("JSON database initialized successfully")
 
@@ -49,7 +52,7 @@ class JSONDatabase:
                     return json.load(f)
             except (json.JSONDecodeError, FileNotFoundError) as e:
                 logger.error(f"Error reading database: {e}")
-                return {"users": {}}
+                return {"users": {}, "courses": {}}
 
     def _write_data(self, data):
         """Write data to JSON file"""
@@ -71,6 +74,34 @@ class JSONDatabase:
         data = self._read_data()
         data["users"][user_id] = user_data
         self._write_data(data)
+
+    # Course management methods
+    def get_all_courses(self):
+        """Get all courses"""
+        data = self._read_data()
+        return data.get("courses", {})
+
+    def get_course(self, course_id: str):
+        """Get specific course data"""
+        data = self._read_data()
+        return data.get("courses", {}).get(course_id)
+
+    def save_course(self, course_id: str, course_data: dict):
+        """Save or update course data"""
+        data = self._read_data()
+        if "courses" not in data:
+            data["courses"] = {}
+        data["courses"][course_id] = course_data
+        self._write_data(data)
+
+    def delete_course(self, course_id: str):
+        """Delete a course"""
+        data = self._read_data()
+        if "courses" in data and course_id in data["courses"]:
+            del data["courses"][course_id]
+            self._write_data(data)
+            return True
+        return False
 
 
 # Global database instance

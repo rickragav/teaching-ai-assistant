@@ -4,7 +4,7 @@ LangGraph Workflow - Teaching State Machine
 
 from typing import Literal
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from .state import TeachingState
@@ -27,12 +27,22 @@ class TeachingGraph:
     def __init__(self, vector_store: LessonVectorStore):
         self.vector_store = vector_store
         self.quiz_generator = QuizGenerator(vector_store)
-        self.llm = ChatOpenAI(
-            model=settings.model_name,
-            temperature=settings.temperature,
-            openai_api_key=settings.openai_api_key,
-            max_tokens=settings.max_openai_tokens,
-        )
+        if settings.use_azure_openai:
+            self.llm = AzureChatOpenAI(
+                azure_deployment=settings.azure_openai_deployment,
+                azure_endpoint=settings.azure_openai_endpoint,
+                api_key=settings.azure_openai_api_key,
+                api_version=settings.azure_openai_api_version,
+                temperature=settings.temperature,
+                max_tokens=settings.max_openai_tokens,
+            )
+        else:
+            self.llm = ChatOpenAI(
+                model=settings.model_name,
+                temperature=settings.temperature,
+                openai_api_key=settings.openai_api_key,
+                max_tokens=settings.max_openai_tokens,
+            )
 
         # Build the graph
         self.graph = self._build_graph()
@@ -42,14 +52,22 @@ class TeachingGraph:
         workflow = StateGraph(TeachingState)
 
         # Add nodes
+        workflow.add_node("greeting", self.greeting_node)
         workflow.add_node("retrieve_content", self.retrieve_content_node)
         workflow.add_node("generate_response", self.generate_response_node)
         workflow.add_node("generate_quiz", self.generate_quiz_node)
         workflow.add_node("evaluate_quiz", self.evaluate_quiz_node)
         workflow.add_node("update_progress", self.update_progress_node)
 
-        # Set entry point
-        workflow.set_entry_point("retrieve_content")
+        # Set entry point based on whether it's a greeting request
+        workflow.set_entry_point("greeting")
+
+        # Add conditional edge from greeting node
+        workflow.add_conditional_edges(
+            "greeting",
+            self.route_after_greeting,
+            {"greet": END, "continue": "retrieve_content"},
+        )
 
         # Add edges
         workflow.add_edge("retrieve_content", "generate_response")
@@ -69,6 +87,89 @@ class TeachingGraph:
         return workflow.compile()
 
     # ========== NODE FUNCTIONS ==========
+
+    def greeting_node(self, state: TeachingState) -> TeachingState:
+        """Node: Generate greeting based on conversation history"""
+        logger.info("[NODE: greeting] Checking if greeting is needed...")
+
+        # Check if this is a greeting request (empty or "__greeting__" input)
+        user_input = state.get("user_input", "").strip()
+        is_greeting_request = user_input == "" or user_input == "__greeting__"
+
+        if not is_greeting_request:
+            logger.info(
+                "[NODE: greeting] Not a greeting request, continuing to normal flow"
+            )
+            state["is_greeting"] = False
+            return state
+
+        # This is a greeting request
+        state["is_greeting"] = True
+        conversation_history = state.get("messages", [])
+        has_history = len(conversation_history) > 0
+
+        try:
+            if has_history:
+                # Returning user - greet based on history
+                logger.info("[NODE: greeting] Generating greeting for returning user")
+                system_prompt = f"""You are a friendly English grammar teacher for the lesson "{state['lesson_title']}".
+
+The student is returning to continue their learning. Look at their conversation history and:
+- Welcome them back warmly
+- Briefly reference what you discussed before
+- Ask if they want to continue or have questions
+- Keep it conversational and encouraging (2-3 sentences)
+
+Conversation History:
+{self._format_history_for_prompt(conversation_history[-6:])}
+"""
+                prompt = (
+                    "Generate a warm welcome back message for the returning student."
+                )
+            else:
+                # New user - fresh greeting
+                logger.info("[NODE: greeting] Generating greeting for new user")
+                system_prompt = f"""You are a friendly English grammar teacher teaching "{state['lesson_title']}".
+
+This is a new student starting this lesson. Greet them warmly and:
+- Welcome them to the lesson
+- Briefly introduce what they'll learn
+- Encourage them and express enthusiasm
+- Ask if they're ready to begin
+- Keep it warm and inviting (2-3 sentences)
+"""
+                prompt = "Generate a welcoming introduction for the new student."
+
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt),
+            ]
+
+            response = self.llm.invoke(messages)
+            state["teacher_response"] = response.content
+
+            logger.info(
+                f"[NODE: greeting] Greeting generated: {response.content[:100]}..."
+            )
+
+        except Exception as e:
+            logger.error(f"[NODE: greeting] Error: {e}")
+            # Fallback greeting
+            state["teacher_response"] = (
+                f"Hello! Welcome to {state['lesson_title']}. "
+                "I'm excited to help you improve your English skills today. Shall we begin?"
+            )
+
+        return state
+
+    def _format_history_for_prompt(self, messages: list) -> str:
+        """Format conversation history for prompt"""
+        formatted = []
+        for msg in messages:
+            if isinstance(msg, dict):
+                role = "Student" if msg["role"] == "user" else "Teacher"
+                formatted.append(f"{role}: {msg['content']}")
+        return "\n".join(formatted)
 
     def retrieve_content_node(self, state: TeachingState) -> TeachingState:
         """Node: Retrieve relevant lesson content using RAG"""
@@ -108,26 +209,6 @@ class TeachingGraph:
         print(f"Lesson: {state['lesson_title']}")
 
         try:
-            # Check if request is from UI (for markdown formatting)
-            is_ui_request = state.get("source") == "ui"
-
-            markdown_instruction = (
-                """
-
-FORMATTING (IMPORTANT):
-- Use markdown formatting in your responses
-- Use **bold** for key concepts and important terms
-- Use *italics* for emphasis
-- Use bullet points (- ) for lists
-- Use numbered lists (1. 2. 3.) for steps
-- Use > for quotes or examples
-- Use `code` for technical terms
-- Use ### for section headers if needed
-- Keep paragraphs separated with blank lines"""
-                if is_ui_request
-                else ""
-            )
-
             system_prompt = f"""You are an expert English grammar teacher teaching "{state['lesson_title']}".
 
 TEACHING GUIDELINES:
@@ -137,7 +218,12 @@ TEACHING GUIDELINES:
 - Break down complex topics into easy-to-understand parts
 - Provide real-world examples to illustrate grammar concepts
 - Keep responses engaging and informative (2-4 paragraphs)
-- Ask if the student has questions after explaining concepts{markdown_instruction}
+- Ask if the student has questions after explaining concepts
+
+QUIZ AND PROGRESSION:
+- When the student indicates they understand the lesson (e.g., "I'm clear", "I got it", "understood"), offer to test their knowledge with a quiz
+- Say something like: "Great! Since you've understood the concepts, would you like to take a short quiz to test your knowledge? It will help reinforce what you've learned."
+- If the student agrees to a quiz, end your response with the phrase: [QUIZ_READY]
 
 LESSON CONTENT:
 {state['retrieved_content']}"""
@@ -161,17 +247,29 @@ LESSON CONTENT:
             print(f"📤 Calling OpenAI LLM...")
             # Generate response
             response = self.llm.invoke(messages)
-            state["teacher_response"] = response.content
+            response_text = response.content
+
+            # Check if teacher is ready to offer quiz
+            quiz_ready = "[QUIZ_READY]" in response_text
+            if quiz_ready:
+                # Remove the marker from the response
+                response_text = response_text.replace("[QUIZ_READY]", "").strip()
+                state["next_action"] = "quiz"
+                logger.info(
+                    "[NODE: generate_response] Quiz marker detected, will route to quiz"
+                )
+
+            state["teacher_response"] = response_text
             state["llm_response"] = response  # Store raw response for voice streaming
 
             print(f"✅ RESPONSE GENERATED FROM LANGGRAPH:")
             print(f"{'-'*60}")
-            print(f"{response.content}")
+            print(f"{response_text}")
             print(f"{'-'*60}\n")
 
             # Update messages
             state["messages"].append({"role": "user", "content": state["user_input"]})
-            state["messages"].append({"role": "assistant", "content": response.content})
+            state["messages"].append({"role": "assistant", "content": response_text})
 
             logger.info("[NODE: generate_response] Response generated")
 
@@ -277,6 +375,17 @@ LESSON CONTENT:
         return state
 
     # ========== ROUTING FUNCTIONS ==========
+
+    def route_after_greeting(
+        self, state: TeachingState
+    ) -> Literal["greet", "continue"]:
+        """Route after greeting node"""
+        is_greeting = state.get("is_greeting", False)
+        route = "greet" if is_greeting else "continue"
+        logger.info(
+            f"[ROUTER: greeting] is_greeting={is_greeting} -> routing to '{route}'"
+        )
+        return route
 
     def route_after_response(
         self, state: TeachingState
