@@ -519,3 +519,22 @@ async def get_vector_database_stats():
         raise HTTPException(
             status_code=500, detail=f"Failed to get vector database stats: {str(e)}"
         )
+
+
+@router.get("/database-info")
+async def get_database_info():
+    """Get database information and status"""
+    try:
+        courses = db.get_all_courses()
+        
+        return {
+            "database_path": db.db_path,
+            "database_exists": Path(db.db_path).exists(),
+            "total_courses": len(courses),
+            "courses": list(courses.keys()),
+            "has_data": len(courses) > 0
+        }
+    except Exception as e:
+        logger.error(f"Failed to get database info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get database info: {str(e)}")
+
