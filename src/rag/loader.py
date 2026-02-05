@@ -27,8 +27,13 @@ class LessonLoader:
         logger.info("LessonLoader initialized with JSON database backend")
 
     def load_lesson_from_content(
-        self, content: str, course_id: str, section_id: str, lesson_id: str, 
-        lesson_title: str, section_title: str
+        self,
+        content: str,
+        course_id: str,
+        section_id: str,
+        lesson_id: str,
+        lesson_title: str,
+        section_title: str,
     ) -> List[Document]:
         """
         Load and chunk a lesson from text content
@@ -53,8 +58,8 @@ class LessonLoader:
                 "lesson_id": lesson_id,
                 "lesson_title": lesson_title,
                 "section_title": section_title,
-                "source": "json_database"
-            }
+                "source": "json_database",
+            },
         )
 
         # Split into chunks
@@ -85,7 +90,7 @@ class LessonLoader:
                 continue
 
             sections = course_data.get("sections", [])
-            
+
             for section in sections:
                 section_id = section.get("id", "")
                 section_title = section.get("title", "")
@@ -102,8 +107,12 @@ class LessonLoader:
 
                     try:
                         chunks = self.load_lesson_from_content(
-                            content, course_id, section_id, lesson_id, 
-                            lesson_title, section_title
+                            content,
+                            course_id,
+                            section_id,
+                            lesson_id,
+                            lesson_title,
+                            section_title,
                         )
                         all_chunks.extend(chunks)
                     except Exception as e:
@@ -153,7 +162,7 @@ class LessonLoader:
                         "section_id": section_id,
                         "section_title": section_title,
                         "title": lesson_title,
-                        "content_length": len(content)
+                        "content_length": len(content),
                     }
                     lesson_counter += 1
 

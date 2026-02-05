@@ -39,7 +39,7 @@ class JSONDatabase:
         """Initialize empty database structure"""
         initial_data = {
             "users": {},  # user_id -> user_data mapping
-            "courses": {}  # course_id -> course_data mapping
+            "courses": {},  # course_id -> course_data mapping
         }
         self._write_data(initial_data)
         logger.info("JSON database initialized successfully")

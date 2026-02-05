@@ -24,13 +24,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def admin_dashboard():
     """Serve the main admin dashboard with navigation"""
     html_path = Path(__file__).parent.parent.parent / "admin-dashboard.html"
-    
+
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Admin dashboard not found")
-    
+
     with open(html_path, "r") as f:
         html_content = f.read()
-    
+
     return HTMLResponse(content=html_content)
 
 
@@ -39,13 +39,13 @@ async def admin_dashboard():
 async def create_course_page():
     """Serve the create course interface"""
     html_path = Path(__file__).parent.parent.parent / "admin-create-course.html"
-    
+
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Create course page not found")
-    
+
     with open(html_path, "r") as f:
         html_content = f.read()
-    
+
     return HTMLResponse(content=html_content)
 
 
@@ -54,13 +54,13 @@ async def create_course_page():
 async def edit_course_page():
     """Serve the edit course interface"""
     html_path = Path(__file__).parent.parent.parent / "admin-edit-course.html"
-    
+
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Edit course page not found")
-    
+
     with open(html_path, "r") as f:
         html_content = f.read()
-    
+
     return HTMLResponse(content=html_content)
 
 
@@ -121,30 +121,34 @@ async def create_course(course: CourseCreate):
         # Process sections and lessons
         sections = []
         total_lessons = 0
-        
+
         for section_data in course.sections:
             section_id = f"section_{uuid.uuid4().hex[:8]}"
             lessons = []
-            
+
             for lesson_data in section_data.lessons:
                 lesson_id = f"lesson_{uuid.uuid4().hex[:8]}"
-                lessons.append({
-                    "id": lesson_id,
-                    "title": lesson_data.title,
-                    "subtitle": lesson_data.subtitle,
-                    "content": lesson_data.content,
-                    "order": lesson_data.order,
-                    "created_at": timestamp
-                })
+                lessons.append(
+                    {
+                        "id": lesson_id,
+                        "title": lesson_data.title,
+                        "subtitle": lesson_data.subtitle,
+                        "content": lesson_data.content,
+                        "order": lesson_data.order,
+                        "created_at": timestamp,
+                    }
+                )
                 total_lessons += 1
-            
-            sections.append({
-                "id": section_id,
-                "title": section_data.title,
-                "order": section_data.order,
-                "lessons": lessons,
-                "created_at": timestamp
-            })
+
+            sections.append(
+                {
+                    "id": section_id,
+                    "title": section_data.title,
+                    "order": section_data.order,
+                    "lessons": lessons,
+                    "created_at": timestamp,
+                }
+            )
 
         course_data = {
             "id": course_id,
@@ -153,12 +157,14 @@ async def create_course(course: CourseCreate):
             "status": "published",
             "sections": sections,
             "created_at": timestamp,
-            "updated_at": timestamp
+            "updated_at": timestamp,
         }
 
         db.save_course(course_id, course_data)
-        
-        logger.info(f"Created course {course_id}: {course.title} with {len(sections)} sections, {total_lessons} lessons")
+
+        logger.info(
+            f"Created course {course_id}: {course.title} with {len(sections)} sections, {total_lessons} lessons"
+        )
 
         return CourseResponse(
             id=course_id,
@@ -168,12 +174,14 @@ async def create_course(course: CourseCreate):
             sections_count=len(sections),
             lessons_count=total_lessons,
             created_at=timestamp,
-            updated_at=timestamp
+            updated_at=timestamp,
         )
 
     except Exception as e:
         logger.error(f"Failed to create course: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create course: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create course: {str(e)}"
+        )
 
 
 @router.get("/courses", response_model=List[CourseResponse])
@@ -181,23 +189,25 @@ async def list_courses():
     """List all courses"""
     try:
         courses = db.get_all_courses()
-        
+
         result = []
         for course_id, course_data in courses.items():
             sections = course_data.get("sections", [])
             lessons_count = sum(len(section.get("lessons", [])) for section in sections)
-            
-            result.append(CourseResponse(
-                id=course_id,
-                title=course_data.get("title", ""),
-                description=course_data.get("description", ""),
-                status=course_data.get("status", "published"),
-                sections_count=len(sections),
-                lessons_count=lessons_count,
-                created_at=course_data.get("created_at", ""),
-                updated_at=course_data.get("updated_at", "")
-            ))
-        
+
+            result.append(
+                CourseResponse(
+                    id=course_id,
+                    title=course_data.get("title", ""),
+                    description=course_data.get("description", ""),
+                    status=course_data.get("status", "published"),
+                    sections_count=len(sections),
+                    lessons_count=lessons_count,
+                    created_at=course_data.get("created_at", ""),
+                    updated_at=course_data.get("updated_at", ""),
+                )
+            )
+
         logger.info(f"Listed {len(result)} courses")
         return result
 
@@ -211,10 +221,10 @@ async def get_course(course_id: str):
     """Get course details"""
     try:
         course = db.get_course(course_id)
-        
+
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
-        
+
         return CourseDetailResponse(
             id=course["id"],
             title=course["title"],
@@ -222,7 +232,7 @@ async def get_course(course_id: str):
             status=course.get("status", "published"),
             sections=course.get("sections", []),
             created_at=course.get("created_at", ""),
-            updated_at=course.get("updated_at", "")
+            updated_at=course.get("updated_at", ""),
         )
 
     except HTTPException:
@@ -237,10 +247,10 @@ async def update_course(course_id: str, course_update: CourseUpdate):
     """Update course metadata"""
     try:
         course = db.get_course(course_id)
-        
+
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
-        
+
         # Update fields
         if course_update.title:
             course["title"] = course_update.title
@@ -248,16 +258,16 @@ async def update_course(course_id: str, course_update: CourseUpdate):
             course["description"] = course_update.description
         if course_update.status:
             course["status"] = course_update.status
-        
+
         course["updated_at"] = datetime.now().isoformat()
-        
+
         db.save_course(course_id, course)
-        
+
         sections = course.get("sections", [])
         lessons_count = sum(len(section.get("lessons", [])) for section in sections)
-        
+
         logger.info(f"Updated course {course_id}")
-        
+
         return CourseResponse(
             id=course_id,
             title=course["title"],
@@ -266,7 +276,7 @@ async def update_course(course_id: str, course_update: CourseUpdate):
             sections_count=len(sections),
             lessons_count=lessons_count,
             created_at=course.get("created_at", ""),
-            updated_at=course["updated_at"]
+            updated_at=course["updated_at"],
         )
 
     except HTTPException:
@@ -281,10 +291,10 @@ async def delete_course(course_id: str):
     """Delete a course"""
     try:
         success = db.delete_course(course_id)
-        
+
         if not success:
             raise HTTPException(status_code=404, detail="Course not found")
-        
+
         logger.info(f"Deleted course {course_id}")
         return {"message": "Course deleted successfully", "course_id": course_id}
 
@@ -300,47 +310,46 @@ async def add_section(course_id: str, section: SectionCreate):
     """Add a section to an existing course"""
     try:
         course = db.get_course(course_id)
-        
+
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
-        
+
         section_id = f"section_{uuid.uuid4().hex[:8]}"
         timestamp = datetime.now().isoformat()
-        
+
         lessons = []
         for lesson_data in section.lessons:
             lesson_id = f"lesson_{uuid.uuid4().hex[:8]}"
-            lessons.append({
-                "id": lesson_id,
-                "title": lesson_data.title,
-                "subtitle": lesson_data.subtitle,
-                "content": lesson_data.content,
-                "order": lesson_data.order,
-                "created_at": timestamp
-            })
-        
+            lessons.append(
+                {
+                    "id": lesson_id,
+                    "title": lesson_data.title,
+                    "subtitle": lesson_data.subtitle,
+                    "content": lesson_data.content,
+                    "order": lesson_data.order,
+                    "created_at": timestamp,
+                }
+            )
+
         new_section = {
             "id": section_id,
             "title": section.title,
             "order": section.order,
             "lessons": lessons,
-            "created_at": timestamp
+            "created_at": timestamp,
         }
-        
+
         if "sections" not in course:
             course["sections"] = []
-        
+
         course["sections"].append(new_section)
         course["updated_at"] = timestamp
-        
+
         db.save_course(course_id, course)
-        
+
         logger.info(f"Added section {section_id} to course {course_id}")
-        
-        return {
-            "message": "Section added successfully",
-            "section": new_section
-        }
+
+        return {"message": "Section added successfully", "section": new_section}
 
     except HTTPException:
         raise
@@ -354,31 +363,31 @@ async def upload_transcription(
     course_id: str,
     section_title: str = Form(...),
     lesson_title: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
 ):
     """Upload a transcription file for a lesson"""
     try:
         course = db.get_course(course_id)
-        
+
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
-        
+
         # Read file content
         content = await file.read()
         transcription_text = content.decode("utf-8")
-        
+
         timestamp = datetime.now().isoformat()
         lesson_id = f"lesson_{uuid.uuid4().hex[:8]}"
-        
+
         # Find or create section
         sections = course.get("sections", [])
         target_section = None
-        
+
         for section in sections:
             if section["title"] == section_title:
                 target_section = section
                 break
-        
+
         if not target_section:
             # Create new section
             section_id = f"section_{uuid.uuid4().hex[:8]}"
@@ -387,10 +396,10 @@ async def upload_transcription(
                 "title": section_title,
                 "order": len(sections),
                 "lessons": [],
-                "created_at": timestamp
+                "created_at": timestamp,
             }
             sections.append(target_section)
-        
+
         # Add lesson to section
         new_lesson = {
             "id": lesson_id,
@@ -398,27 +407,28 @@ async def upload_transcription(
             "subtitle": section_title,
             "content": transcription_text,
             "order": len(target_section["lessons"]),
-            "created_at": timestamp
+            "created_at": timestamp,
         }
-        
+
         target_section["lessons"].append(new_lesson)
         course["sections"] = sections
         course["updated_at"] = timestamp
-        
+
         db.save_course(course_id, course)
-        
-        logger.info(f"Uploaded transcription for course {course_id}, section {section_title}, lesson {lesson_title}")
-        
-        return {
-            "message": "Transcription uploaded successfully",
-            "lesson": new_lesson
-        }
+
+        logger.info(
+            f"Uploaded transcription for course {course_id}, section {section_title}, lesson {lesson_title}"
+        )
+
+        return {"message": "Transcription uploaded successfully", "lesson": new_lesson}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to upload transcription: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload transcription: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to upload transcription: {str(e)}"
+        )
 
 
 @router.post("/rebuild-vector-db")
@@ -426,34 +436,40 @@ async def rebuild_vector_database():
     """Rebuild the vector database from scratch with all published courses"""
     try:
         logger.info("Starting vector database rebuild...")
-        
+
         # Force rebuild the RAG system
         vector_store = setup_rag_system(force_rebuild=True)
-        
+
         # Get stats
         courses = db.get_all_courses()
-        published_courses = sum(1 for c in courses.values() if c.get("status") == "published")
-        
+        published_courses = sum(
+            1 for c in courses.values() if c.get("status") == "published"
+        )
+
         total_lessons = 0
         for course in courses.values():
             if course.get("status") == "published":
                 for section in course.get("sections", []):
                     total_lessons += len(section.get("lessons", []))
-        
-        logger.info(f"Vector database rebuilt successfully: {published_courses} courses, {total_lessons} lessons")
-        
+
+        logger.info(
+            f"Vector database rebuilt successfully: {published_courses} courses, {total_lessons} lessons"
+        )
+
         return {
             "message": "Vector database rebuilt successfully",
             "stats": {
                 "published_courses": published_courses,
                 "total_lessons": total_lessons,
-                "status": "completed"
-            }
+                "status": "completed",
+            },
         }
 
     except Exception as e:
         logger.error(f"Failed to rebuild vector database: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to rebuild vector database: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to rebuild vector database: {str(e)}"
+        )
 
 
 @router.get("/vector-db-stats")
@@ -462,17 +478,19 @@ async def get_vector_database_stats():
     try:
         from pathlib import Path
         from ..config import settings
-        
+
         chroma_path = Path(settings.chroma_path)
         store_exists = chroma_path.exists() and any(chroma_path.iterdir())
-        
+
         # Get course stats
         courses = db.get_all_courses()
-        published_courses = sum(1 for c in courses.values() if c.get("status") == "published")
-        
+        published_courses = sum(
+            1 for c in courses.values() if c.get("status") == "published"
+        )
+
         total_chunks = 0
         total_lessons = 0
-        
+
         for course in courses.values():
             if course.get("status") == "published":
                 for section in course.get("sections", []):
@@ -482,10 +500,10 @@ async def get_vector_database_stats():
                     for lesson in lessons:
                         content_length = len(lesson.get("content", ""))
                         total_chunks += max(1, content_length // 1000)
-        
+
         # Check if vector store is initialized
         status = "initialized" if store_exists else "not_initialized"
-        
+
         return {
             "status": status,
             "exists": store_exists,
@@ -493,9 +511,11 @@ async def get_vector_database_stats():
             "indexed_lessons": total_lessons,
             "estimated_chunks": total_chunks,
             "storage_path": str(chroma_path),
-            "embedding_model": "text-embedding-3-small"
+            "embedding_model": "text-embedding-3-small",
         }
 
     except Exception as e:
         logger.error(f"Failed to get vector database stats: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get vector database stats: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get vector database stats: {str(e)}"
+        )

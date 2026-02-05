@@ -280,7 +280,7 @@ async def get_learning_path(user_id: str):
                     "completed_lessons": 0,
                     "streak_days": 0,
                     "total_points": 0,
-                }
+                },
             )
 
         sections_data = []
