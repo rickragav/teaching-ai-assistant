@@ -67,7 +67,7 @@ async def edit_course_page():
 # Request/Response Models
 class LessonCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
-    subtitle: str = Field(default="", max_length=500)
+    subtitle: str = Field(default="")
     content: str = Field(..., min_length=10)  # Transcription text
     order: int = Field(default=0, ge=0)
 
@@ -80,7 +80,7 @@ class SectionCreate(BaseModel):
 
 class CourseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
-    description: str = Field(default="", max_length=1000)
+    description: str = Field(default="")
     sections: List[SectionCreate] = Field(default_factory=list)
 
 
