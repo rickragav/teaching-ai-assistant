@@ -263,7 +263,10 @@
     </div>
 
     <script>
-      const API_BASE_URL = 'http://localhost:8000/api'
+        // Dynamically determine API base URL
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000/api'
+            : `${window.location.protocol}//${window.location.host}/api`;
       
       // Check API status
       async function checkAPIStatus() {
