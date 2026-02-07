@@ -263,10 +263,8 @@
     </div>
 
     <script>
-        // Dynamically determine API base URL
-        const API_BASE_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8000/api'
-            : `${window.location.protocol}//${window.location.host}/api`;
+      // Dynamically determine API base URL
+      const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : `${window.location.protocol}//${window.location.host}/api`
       
       // Check API status
       async function checkAPIStatus() {
@@ -305,13 +303,13 @@
           const recentCoursesHTML = recentCourses
             .map(
               (course) => `
-                          <div class="course-item">
-                              <div class="course-info">
-                                  <h3>${course.title}</h3>
-                                  <p>${course.sections_count} sections · ${course.lessons_count} lessons · Created ${new Date(course.created_at).toLocaleDateString()}</p>
-                              </div>
-                          </div>
-                      `
+                                <div class="course-item">
+                                    <div class="course-info">
+                                        <h3>${course.title}</h3>
+                                        <p>${course.sections_count} sections · ${course.lessons_count} lessons · Created ${new Date(course.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                            `
             )
             .join('')
       
